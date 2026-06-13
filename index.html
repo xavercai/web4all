@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>泰勒级数的空间视角：导数系数谱 | 微积分可视化</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none; /* 避免拖动时选中文字，提升体验 */
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Fira Code', monospace, system-ui;
+            background: linear-gradient(145deg, #f5f7fc 0%, #e9eef4 100%);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* 主卡片容器 */
+        .explorer {
+            max-width: 1300px;
+            width: 100%;
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(2px);
+            border-radius: 3rem;
+            box-shadow: 0 25px 45px -12px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.05);
+            overflow: hidden;
+            padding: 1.5rem 2rem 2rem 2rem;
+            transition: all 0.2s;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 1.8rem;
+            margin: 0 0 0.2rem 0;
+            color: #1e2a3e;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        h1 small {
+            font-size: 0.9rem;
+            font-weight: normal;
+            background: #1e2a3e10;
+            padding: 4px 12px;
+            border-radius: 40px;
+            color: #2c3e66;
+        }
+        .sub {
+            color: #2c3e66cc;
+            margin-bottom: 1.8rem;
+            border-left: 4px solid #3b82f6;
+            padding-left: 1rem;
+            font-weight: 450;
+        }
+
+        /* 双栏布局: 左侧控制+图示说明, 右侧图表 */
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+        .control-panel {
+            flex: 1.2;
+            min-width: 260px;
+        }
+        .chart-panel {
+            flex: 2.5;
+            min-width: 450px;
+        }
+
+        /* 函数选择器样式 */
+        .func-selector {
+            background: white;
+            border-radius: 2rem;
+            padding: 1.2rem 1.5rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            margin-bottom: 1.8rem;
+        }
+        .selector-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 15px 0 5px;
+        }
+        .func-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .func-btn.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 10px #3b82f640;
+        }
+        .func-btn:hover:not(.active) {
+            background: #e2e8f0;
+            transform: scale(0.97);
+        }
+
+        /* 系数谱可视化说明 */
+        .legend-card {
+            background: #ffffffcc;
+            backdrop-filter: blur(4px);
+            border-radius: 1.5rem;
+            padding: 1rem 1.2rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            border: 1px solid #ffffffaa;
+        }
+        .legend-card p {
+            margin: 8px 0;
+        }
+        .math-expr {
+            font-family: monospace;
+            background: #eef2ff;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        /* 右侧canvas图表 */
+        .graph-container {
+            background: white;
+            border-radius: 2rem;
+            padding: 1rem;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+        }
+        canvas {
+            width: 100%;
+            height: auto;
+            background: #ffffff;
+            border-radius: 1.2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .chart-caption {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #1e293b;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        /* 泰勒公式动态显示 */
+        .taylor-preview {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 1.2rem;
+            padding: 1rem 1.3rem;
+            margin-top: 1.5rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .taylor-preview .eq {
+            color: #facc15;
+        }
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #33415599;
+        }
+        @media (max-width: 800px) {
+            .explorer { padding: 1.2rem; }
+            .func-btn { padding: 6px 12px; font-size: 0.8rem; }
+        }
+    </style>
+    <!-- 引入 Chart.js 轻量图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="explorer">
+    <h1>
+        📐 微积分的“二维坐标系”视角
+        <small>泰勒基底 · 导数系数谱</small>
+    </h1>
+    <div class="sub">
+        🧠 X轴固定为基底 <span class="math-expr">xⁿ/n!</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+        Y轴 = 函数在0处的各阶导数值 <span class="math-expr">f⁽ⁿ⁾(0)</span> → 构成系数谱
+    </div>
+
+    <div class="dashboard">
+        <!-- 左侧控制区 -->
+        <div class="control-panel">
+            <div class="func-selector">
+                <div class="selector-title">
+                    📌 选择函数 f(x)
+                </div>
+                <div class="btn-group" id="functionButtons">
+                    <button data-func="exp" class="func-btn active">eˣ</button>
+                    <button data-func="sin" class="func-btn">sin(x)</button>
+                    <button data-func="cos" class="func-btn">cos(x)</button>
+                    <button data-func="cosh" class="func-btn">cosh(x)</button>
+                    <button data-func="geom" class="func-btn">1/(1-x)</button>
+                    <button data-func="poly" class="func-btn">x² + x</button>
+                </div>
+                <div style="margin-top: 1rem; font-size: 0.8rem; color: #334155;">
+                    ⚡ 泰勒级数:  &nbsp; 
+                    <span id="seriesFormula">f(x) = Σ [ f⁽ⁿ⁾(0)/n! ]·xⁿ</span>
+                </div>
+            </div>
+
+            <div class="legend-card">
+                <p>🔷 <strong>“二维坐标系” 思想图景</strong></p>
+                <p>▪ 固定横轴：基底序号 <em>n</em> (对应 <em>xⁿ/n!</em>)<br>
+                ▪ 每个函数对应一组纵坐标：<span style="background:#3b82f620;">系数 cₙ = f⁽ⁿ⁾(0)</span><br>
+                ▪ 这就是函数的<strong>泰勒系数谱</strong> —— 仿佛函数在抽象空间中的“坐标点集”<br>
+                ▪ 不同函数 → 不同条形图 (无限维度的投影)</p>
+                <p>📐 下方条形图: 每个柱子高度 = <span class="math-expr">f⁽ⁿ⁾(0)</span> ，即导数在原点处的值。<br>
+                ✨ 可以清晰看到 eˣ 所有系数 =1；sin 隔项消失等规律。</p>
+            </div>
+        </div>
+
+        <!-- 右侧图表区 -->
+        <div class="chart-panel">
+            <div class="graph-container">
+                <canvas id="coeffChart" width="700" height="400" style="width:100%; height:auto; max-height:420px"></canvas>
+                <div class="chart-caption">
+                    📊 系数谱: Y轴 = 各阶导数 f⁽ⁿ⁾(0) &nbsp; | &nbsp; X轴 = 幂次 n (基函数 xⁿ/n!)
+                </div>
+            </div>
+            <!-- 泰勒展开预览 -->
+            <div class="taylor-preview" id="taylorPreview">
+                💡 点击上方函数，观察系数谱与泰勒展开式的对应关系
+            </div>
+        </div>
+    </div>
+    <footer>
+        🧪 每个函数被展开为 Σ cₙ·(xⁿ/n!) ，cₙ 即 f⁽ⁿ⁾(0)。条形图直观展示“Y轴导数坐标”。
+    </footer>
+</div>
+
+<script>
+    // 定义函数族，返回前N项系数 c_n = f^(n)(0)   (n = 0,1,...,N-1)
+    const FUNCTIONS = {
+        exp: {
+            name: 'eˣ',
+            formula: 'e^x = Σ (1) · xⁿ/n!',
+            coeff: (n) => 1,   // 所有阶导数都是1
+            taylorDisplay: (nTerms) => `e^x = 1 + x + x²/2! + x³/3! + ...`
+        },
+        sin: {
+            name: 'sin(x)',
+            formula: 'sin x = Σ (-1)ᵏ x²ᵏ⁺¹/(2k+1)!',
+            coeff: (n) => {
+                if (n % 2 === 0) return 0;
+                const k = (n-1)/2;
+                return (k % 2 === 0) ? 1 : -1;
+            },
+            taylorDisplay: (nTerms) => `sin x = x - x³/3! + x⁵/5! - x⁷/7! + ...`
+        },
+        cos: {
+            name: 'cos(x)',
+            formula: 'cos x = Σ (-1)ᵏ x²ᵏ/(2k)!',
+            coeff: (n) => {
+                if (n % 2 === 1) return 0;
+                const k = n/2;
+                return (k % 2 === 0) ? 1 : -1;
+            },
+            taylorDisplay: (nTerms) => `cos x = 1 - x²/2! + x⁴/4! - x⁶/6! + ...`
+        },
+        cosh: {
+            name: 'cosh(x)',
+            formula: 'cosh x = Σ x²ᵏ/(2k)!',
+            coeff: (n) => {
+                if (n % 2 === 1) return 0;
+                return 1;
+            },
+            taylorDisplay: (nTerms) => `cosh x = 1 + x²/2! + x⁴/4! + x⁶/6! + ...`
+        },
+        geom: {
+            name: '1/(1-x)',
+            formula: '1/(1-x) = Σ xⁿ',
+            coeff: (n) => {
+                return 1;   // f^(n)(0) = n! 但是注意: 除以 n! 后系数为1
+                // 这里表示 c_n = f^(n)(0) 实际上1/(1-x)的 n 阶导 = n! , 所以 c_n = n!
+                // 但是为了符合直观的泰勒级数 Σ xⁿ = Σ n! / n! · xⁿ? 小心!
+                // 标准泰勒: 1/(1-x) = Σ xⁿ = Σ (n! / n!) xⁿ, 因此 f^(n)(0) = n!
+            },
+            // 修正coeff: 1/(1-x) 的f^(n)(0) = n!
+            coeffRaw: (n) => {
+                // 重新实现，使用阶乘
+                let fact = 1;
+                for(let i=2; i<=n; i++) fact *= i;
+                return fact;
+            },
+            taylorDisplay: (nTerms) => `1/(1-x) = 1 + x + x² + x³ + ... (|x|<1)`
+        },
+        poly: {
+            name: 'x² + x',
+            formula: 'x² + x',
+            coeff: (n) => {
+                if (n === 0) return 0;
+                if (n === 1) return 1;
+                if (n === 2) return 2;
+                return 0;
+            },
+            taylorDisplay: (nTerms) => `x² + x = 0·1 + 1·x + 2·x²/2! + 0·...`
+        }
+    };
+    // 为geom单独处理coeff (因为阶乘增长太快, 但展示前几项无妨)
+    // 重新定义geom的coeffGetter
+    FUNCTIONS.geom.coeff = (n) => {
+        if (n === 0) return 1;
+        let fact = 1;
+        for(let i=2; i<=n; i++) fact *= i;
+        return fact;
+    };
+    // 修正exp的显示方式以及cosh小修正 
+    // 一切就绪
+    
+    let currentFuncKey = 'exp';
+    let chart = null;
+    const MAX_N = 12;      // 展示 n = 0 .. 11 一共12项, 足够观察模式
+
+    // 计算系数数组 (前MAX_N项)
+    function getCoefficients(funcKey) {
+        const func = FUNCTIONS[funcKey];
+        const coeffs = [];
+        for (let n = 0; n < MAX_N; n++) {
+            let val = func.coeff(n);
+            // 处理过大数值限制显示范围 (geom高阶很大，但依然展示，让用户看到激增)
+            coeffs.push(val);
+        }
+        return coeffs;
+    }
+    
+    // 获取用于显示的泰勒文字 (概要)
+    function getTaylorDescription(funcKey) {
+        const func = FUNCTIONS[funcKey];
+        return func.taylorDisplay(MAX_N);
+    }
+
+    // 更新Chart.js图表
+    function updateChart() {
+        const coeffs = getCoefficients(currentFuncKey);
+        const labels = [];
+        for (let i = 0; i < MAX_N; i++) {
+            labels.push(`n = ${i}   (x${i === 0 ? '' : `⁽${i}⁾`}/ ${i}! )`);
+        }
+        
+        if (chart) {
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = coeffs;
+            chart.data.datasets[0].label = `f⁽ⁿ⁾(0) 系数谱 · ${FUNCTIONS[currentFuncKey].name}`;
+            chart.update();
+        } else {
+            const ctx = document.getElementById('coeffChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `f⁽ⁿ⁾(0)  ·  ${FUNCTIONS[currentFuncKey].name}`,
+                        data: coeffs,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(30, 64, 175, 1)',
+                        borderWidth: 1.5,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    let val = context.raw;
+                                    return `导数 f⁽ⁿ⁾(0) = ${val}`;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: { font: { size: 12, weight: 'bold' } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: '🧾 各阶导数值 f⁽ⁿ⁾(0)   (Y轴坐标)',
+                                font: { weight: 'bold', size: 12 }
+                            },
+                            beginAtZero: true,
+                            grid: { color: '#e2e8f0' }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '🔷 基底序号 n  →  基函数 xⁿ / n!  (固定X轴)',
+                                font: { weight: 'bold', size: 12 }
+                            },
+                            ticks: {
+                                maxRotation: 35,
+                                autoSkip: true,
+                                font: { size: 10 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新泰勒展开预览文字 + 附加解释
+        const func = FUNCTIONS[currentFuncKey];
+        let seriesDetail = `📐 ${func.name} 的泰勒展开 (在 x=0) : <span class="eq">${func.formula}</span><br>`;
+        seriesDetail += `🔍 系数 cₙ = f⁽ⁿ⁾(0) : [${getCoefficients(currentFuncKey).slice(0,8).join(', ')}${MAX_N>8?' ...':''}]<br>`;
+        seriesDetail += `✨ 观察条形图：每一个柱子的高度就是导数谱上的“Y轴坐标”。`;
+        if (currentFuncKey === 'geom') {
+            seriesDetail += `<br>⚠️ 注意：1/(1-x) 的 f⁽ⁿ⁾(0) = n! ，所以系数增长极快，显示前几项便已突出。`;
+        }
+        if (currentFuncKey === 'poly') {
+            seriesDetail += `<br>🎯 多项式只有有限个非零导数系数，完美体现“有限支撑”。`;
+        }
+        document.getElementById('taylorPreview').innerHTML = seriesDetail;
+        document.getElementById('seriesFormula').innerHTML = `${func.name} : ${func.formula}`;
+    }
+
+    // 绑定按钮事件
+    function bindEvents() {
+        const btns = document.querySelectorAll('#functionButtons .func-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const funcKey = btn.getAttribute('data-func');
+                if (!funcKey) return;
+                currentFuncKey = funcKey;
+                // 更新active样式
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateChart();
+            });
+        });
+    }
+    
+    // 初始化
+    function init() {
+        bindEvents();
+        updateChart();
+    }
+    
+    init();
+</script>
+</body>
+</html>
